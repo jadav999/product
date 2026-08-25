@@ -1,0 +1,18 @@
+[
+  {
+    "id": "reels-600k",
+    "title": "600K+ Viral Reels Bundle",
+    "price": 299,
+    "originalPrice": 1999,
+    "description": "600,000+ ready-to-post reels across fitness, luxury, travel, food and anime niches. Instant download after payment.",
+    "downloadUrl": "https://drive.google.com/your-shared-folder-link-here"
+  },
+  {
+    "id": "reels-1m",
+    "title": "1 Million+ Mega Reels Pack",
+    "price": 499,
+    "originalPrice": 2999,
+    "description": "The complete 1M+ reel library, all categories, 4K quality, with resell rights.",
+    "downloadUrl": "https://drive.google.com/your-second-product-link-here"
+  }
+]

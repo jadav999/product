@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReelVault — Admin Panel</title>
+<style>
+  :root{
+    --ink:#1a1a1a; --mist:#6b7280; --line:#e5e7eb; --bg:#f9fafb;
+    --green:#16a34a; --red:#dc2626; --yellow:#d97706;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); padding:20px;}
+  .wrap{max-width:900px; margin:0 auto;}
+  h1{font-size:22px; margin-bottom:16px;}
+  .key-bar{
+    display:flex; gap:10px; margin-bottom:24px; background:#fff; padding:16px;
+    border:1px solid var(--line); border-radius:10px; flex-wrap:wrap;
+  }
+  .key-bar input{
+    flex:1; min-width:200px; padding:10px 12px; border:1px solid var(--line);
+    border-radius:8px; font-size:14px;
+  }
+  .key-bar button, .action-btn{
+    padding:10px 18px; border:none; border-radius:8px; font-weight:700;
+    font-size:14px; cursor:pointer; background:var(--ink); color:#fff;
+  }
+  .stats{display:flex; gap:12px; margin-bottom:20px; flex-wrap:wrap;}
+  .stat-box{
+    background:#fff; border:1px solid var(--line); border-radius:10px;
+    padding:14px 20px; flex:1; min-width:120px;
+  }
+  .stat-box .num{font-size:22px; font-weight:800;}
+  .stat-box .label{font-size:12px; color:var(--mist); margin-top:2px;}
+  .order-card{
+    background:#fff; border:1px solid var(--line); border-radius:10px;
+    padding:16px; margin-bottom:12px;
+  }
+  .order-top{display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px;}
+  .order-id{font-weight:800; font-size:14px;}
+  .order-date{font-size:12px; color:var(--mist);}
+  .status-badge{
+    font-size:11px; font-weight:700; padding:4px 10px; border-radius:999px;
+    text-transform:uppercase;
+  }
+  .status-pending_verification{background:#fef3c7; color:var(--yellow);}
+  .status-verified{background:#dcfce7; color:var(--green);}
+  .status-rejected{background:#fee2e2; color:var(--red);}
+  .status-pending{background:#f3f4f6; color:var(--mist);}
+  .order-details{margin-top:10px; font-size:13px; color:#444; line-height:1.7;}
+  .order-details b{color:var(--ink);}
+  .items-list{margin-top:8px; font-size:13px; color:#444;}
+  .actions{display:flex; gap:8px; margin-top:14px;}
+  .btn-verify{background:var(--green); color:#fff;}
+  .btn-reject{background:#fff; color:var(--red); border:1px solid var(--red) !important;}
+  .empty{text-align:center; color:var(--mist); padding:40px; font-size:14px;}
+  .loading{text-align:center; color:var(--mist); padding:20px;}
+  .error-msg{background:#fee2e2; color:var(--red); padding:12px; border-radius:8px; margin-bottom:16px; font-size:13px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📋 ReelVault — Admin Panel</h1>
+
+  <div class="key-bar">
+    <input type="text" id="apiUrlInput" placeholder="Backend URL, e.g. https://product-43hy.onrender.com">
+    <input type="password" id="adminKeyInput" placeholder="Admin key">
+    <button onclick="loadOrders()">Load Orders</button>
+  </div>
+
+  <div id="content"></div>
+</div>
+
+<script>
+  let currentOrders = [];
+
+  // Remember the backend URL between visits (not the admin key, for safety)
+  window.addEventListener("load", () => {
+    const savedUrl = window.name || "";
+    if (savedUrl) document.getElementById("apiUrlInput").value = savedUrl;
+  });
+
+  async function loadOrders() {
+    const apiUrl = document.getElementById("apiUrlInput").value.trim().replace(/\/$/, "");
+    const key = document.getElementById("adminKeyInput").value.trim();
+    const content = document.getElementById("content");
+
+    if (!apiUrl || !key) {
+      content.innerHTML = '<div class="error-msg">Please enter both the backend URL and admin key.</div>';
+      return;
+    }
+
+    window.name = apiUrl; // remember URL for this browser tab session
+
+    content.innerHTML = '<div class="loading">Loading orders...</div>';
+
+    try {
+      const res = await fetch(`${apiUrl}/api/orders?key=${encodeURIComponent(key)}`);
+      const data = await res.json();
+
+      if (!data.success) {
+        content.innerHTML = `<div class="error-msg">${data.error || "Failed to load orders. Check your admin key."}</div>`;
+        return;
+      }
+
+      currentOrders = data.orders.reverse(); // newest first
+      renderOrders(apiUrl, key);
+    } catch (err) {
+      content.innerHTML = '<div class="error-msg">Could not reach the backend. Check the URL and that your server is running.</div>';
+    }
+  }
+
+  function renderOrders(apiUrl, key) {
+    const content = document.getElementById("content");
+
+    if (!currentOrders.length) {
+      content.innerHTML = '<div class="empty">No orders yet.</div>';
+      return;
+    }
+
+    const pending = currentOrders.filter(o => o.status === "pending_verification").length;
+    const verified = currentOrders.filter(o => o.status === "verified").length;
+
+    let html = `
+      <div class="stats">
+        <div class="stat-box"><div class="num">${currentOrders.length}</div><div class="label">Total Orders</div></div>
+        <div class="stat-box"><div class="num">${pending}</div><div class="label">Awaiting Verification</div></div>
+        <div class="stat-box"><div class="num">${verified}</div><div class="label">Verified</div></div>
+      </div>
+    `;
+
+    html += currentOrders.map(order => {
+      const itemsList = (order.items || []).map(i => `${i.title} (₹${i.price} × ${i.qty})`).join(", ");
+      const canAct = order.status === "pending_verification";
+
+      return `
+        <div class="order-card">
+          <div class="order-top">
+            <div>
+              <div class="order-id">${order.orderId}</div>
+              <div class="order-date">${new Date(order.createdAt).toLocaleString()}</div>
+            </div>
+            <span class="status-badge status-${order.status}">${order.status.replace("_", " ")}</span>
+          </div>
+          <div class="order-details">
+            <b>Name:</b> ${order.name} &nbsp;|&nbsp; <b>Email:</b> ${order.email} &nbsp;|&nbsp; <b>Phone:</b> ${order.phone}<br>
+            <b>Transaction ID:</b> ${order.transactionId || "—"} &nbsp;|&nbsp; <b>Amount:</b> ₹${order.total || order.amount}
+          </div>
+          <div class="items-list"><b>Items:</b> ${itemsList || "—"}</div>
+          ${canAct ? `
+            <div class="actions">
+              <button class="action-btn btn-verify" onclick="verifyOrder('${apiUrl}', '${key}', '${order.orderId}', 'verified')">✓ Verify &amp; Send Email</button>
+              <button class="action-btn btn-reject" onclick="verifyOrder('${apiUrl}', '${key}', '${order.orderId}', 'rejected')">✕ Reject</button>
+            </div>
+          ` : ""}
+        </div>
+      `;
+    }).join("");
+
+    content.innerHTML = html;
+  }
+
+  async function verifyOrder(apiUrl, key, orderId, status) {
+    if (status === "verified" && !confirm("Have you confirmed this payment in your UPI app? This will email the download links to the customer.")) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`${apiUrl}/api/orders/${orderId}/verify?key=${encodeURIComponent(key)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        if (status === "verified" && data.emailSent === false) {
+          alert("Order verified, but the email could not be sent: " + (data.emailError || "unknown error") + "\nCheck your EMAIL_USER / EMAIL_APP_PASSWORD settings on Render.");
+        }
+        loadOrders();
+      } else {
+        alert(data.error || "Something went wrong.");
+      }
+    } catch (err) {
+      alert("Could not reach the backend.");
+    }
+  }
+</script>
+</body>
+</html>
